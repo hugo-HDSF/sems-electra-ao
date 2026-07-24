@@ -238,6 +238,7 @@ func (sc *SiteController) getStatusLocked() StationStatus {
 		LastEventTimestamp: sc.lastTimestamp,
 		BESS:               bessStatus,
 		Sessions:           sessions,
+		EVSEs:              evses,
 	}
 }
 
