@@ -1,0 +1,111 @@
+openapi: 3.0.0
+info:
+  title: SEMS API
+  version: 1.0.0
+  description: Smart Energy Management System Simulation API
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/v1/status:
+    get:
+      summary: Get current station status
+      responses:
+        '200':
+          description: Station status
+  /api/v1/simulate/tick:
+    post:
+      summary: Advance simulation time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                durationMinutes:
+                  type: integer
+      responses:
+        '200':
+          description: Tick results
+  /api/v1/events/connect:
+    post:
+      summary: Connect an EV to a connector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                connectorId:
+                  type: string
+                evMaxPowerKW:
+                  type: number
+                evBatteryKWh:
+                  type: number
+                evSoC:
+                  type: number
+                timestamp:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Session created
+  /api/v1/events/disconnect:
+    post:
+      summary: Disconnect an EV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                connectorId:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Disconnected
+  /api/v1/events/power-update:
+    post:
+      summary: Update requested power for an active session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                connectorId:
+                  type: string
+                requestedPowerKW:
+                  type: number
+                evSoC:
+                  type: number
+                timestamp:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Power updated
+  /api/v1/station/config:
+    post:
+      summary: Load station configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Configured
