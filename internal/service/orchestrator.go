@@ -73,6 +73,7 @@ func (sc *SiteController) ConnectEV(connectorID string, evMaxPower, evBatteryKWh
 	conn.Status = domain.StatusOccupied
 
 	sc.reallocate()
+	sc.broadcast()
 
 	sc.logger.Info("EV connected", "connectorId", connectorID, "sessionId", sessionID, "allocated", conn.Session.AllocatedPower)
 	return session, nil
@@ -98,6 +99,8 @@ func (sc *SiteController) DisconnectEV(connectorID string, ts time.Time) error {
 	conn.Status = domain.StatusAvailable
 
 	sc.reallocate()
+	sc.broadcast()
+	
 	sc.logger.Info("EV disconnected", "connectorId", connectorID)
 	return nil
 }
@@ -122,6 +125,8 @@ func (sc *SiteController) UpdatePowerRequest(connectorID string, requestedKW, ev
 	conn.Session.EVSoC = evSoC
 
 	sc.reallocate()
+	sc.broadcast()
+	
 	sc.logger.Info("Power request updated", "connectorId", connectorID, "requested", requestedKW, "allocated", conn.Session.AllocatedPower)
 	return nil
 }
