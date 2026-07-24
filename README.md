@@ -13,10 +13,21 @@ SEMS is an in-memory, deterministic simulation engine for managing EV charging s
 
 ### Prerequisites
 - Go 1.23 or higher
-- Docker (optional)
-- Make (optional)
+### Run via Docker (Recommended)
+
+This approach ensures the application works identically on all computers without needing to install Go.
+
+```bash
+# Run all tests inside a Docker container
+make test
+
+# Build and run the entire stack (with live logs attached)
+make dev
+```
 
 ### Run Locally (Native)
+
+If you have Go 1.23+ installed natively on your machine:
 
 ```bash
 # Build the binary
@@ -24,14 +35,6 @@ make build
 
 # Start the server (default port 8080)
 make run
-```
-
-### Run via Docker (Recommended)
-
-If you prefer to keep it simple and just use Docker, you can run the entire stack (with live logs attached) using:
-
-```bash
-make dev
 ```
 
 ## API Documentation
