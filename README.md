@@ -34,7 +34,7 @@ The raw OpenAPI 3.0 specification can be found in `swagger/openapi.yaml`.
 
 ### Domain Logic & Architecture Schema
 
-The codebase is strictly separated into three layers to ensure thread-safety, determinism, and pure business logic.
+The codebase is strictly separated into three layers. This architecture deliberately isolates the concurrent API threads and mutex locking (Service Layer) entirely away from the pure, deterministic mathematical models (Domain Layer).
 
 ```mermaid
 flowchart TD

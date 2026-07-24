@@ -102,3 +102,7 @@ Temporary Items
 ### Skills ###
 .agents
 skills-lock.json
+# Build artifacts
+/bin/
+/dist/
+sems
