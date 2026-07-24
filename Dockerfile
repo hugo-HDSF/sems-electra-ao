@@ -13,5 +13,6 @@ WORKDIR /app
 COPY --from=builder /app/sems .
 COPY --from=builder /app/configs ./configs
 COPY --from=builder /app/swagger ./swagger
+COPY --from=builder /app/web ./web
 EXPOSE 8080
 CMD ["./sems", "--config", "configs/example_station.json", "--port", "8080"]
