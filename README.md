@@ -158,3 +158,38 @@ flowchart LR
 - **Monotonic Time**: Time advancement is strictly monotonic, preventing backwards time travel via API requests.
 - **Tick Cap**: Time leaps are capped at 10 minutes max to prevent mathematical bypasses of hardware constraints (e.g., BESS operational floors).
 - **Concurrency**: Lock-free domain layer with concurrency handled at the orchestration (`SiteController`) layer.
+
+## Test Scenarios
+
+The system is validated by a suite of 21 automated tests covering the core domain logic, BESS physics, and API integration. These scenarios were specifically chosen to validate complex proportional math, hardware limits, and concurrent edge cases.
+
+### 1. Power Allocation (Core Algorithm)
+*   **`T01_SingleEV`**: Validates the baseline: a single car receives all requested power up to its hardware limits.
+*   **`T02_TwoEVs_UnderLimit`**: Validates that when total demand is lower than both the global Grid Limit AND local EVSE maximum limits, multiple EVs receive exactly 100% of their requested power without any throttling.
+*   **`T03_TwoEVs_OverLimit`**: Validates the proportional split algorithm when the grid budget is exhausted.
+*   **`T04_EVDisconnects`**: Validates that when a vehicle disconnects, its allocated power is instantly released back to the grid budget.
+*   **`T05_EVUpdatesPower`**: Validates that when a vehicle updates its charging curve (e.g., requests less power), the freed capacity is instantly re-harvested and distributed to other vehicles.
+*   **`T06_EVSESharing`**: Validates the two-level hierarchy logic. If two EVs are on the *same* EVSE, they must fairly split the EVSE's local maximum capacity (e.g., 300kW shared as 150kW each), even if the global Grid Limit has plenty of spare power available overall.
+*   **`T07_VehicleLimit`**: **(Edge Case)** Validates the core algorithm's iterative redistribution loop. If a vehicle asks for very little power (e.g., 10kW), but its mathematical proportional share was higher (e.g., 100kW), the algorithm must cap that vehicle at 10kW and intelligently "harvest" the remaining 90kW to redistribute to other power-hungry vehicles on the station.
+
+### 2. BESS Integration (Battery Physics)
+*   **`T08_DischargeBoost`**: Validates that the BESS successfully supplements the grid limit during peak demand.
+*   **`T09_FloorNoDischarge`**: **(Edge Case)** Validates that a BESS starting at exactly 10% SoC will strictly refuse to discharge, protecting battery health.
+*   **`T10_ChargeWithSpare`**: Validates that the BESS actively recharges when total station demand is lower than the grid limit.
+*   **`T11_DrainOverTime`**: Validates the arithmetic of energy loss over multi-minute ticks.
+*   **`T12_HitsFloorStopsDischarging`**: Validates the mathematical precision of BESS energy drain over time. If a tick duration (e.g., 5 minutes) would theoretically drain the BESS below its strict 10% safety floor, the system must precisely calculate the exact moment it hits 10% and instantly halt discharging, ensuring the floor is never breached even by a fraction of a percent.
+*   **`T13_FormatSoC`**: Validates that the state of charge is strictly formatted to exactly 2 decimal places to prevent floating-point precision display issues.
+
+### 3. Time Simulation & State Machine
+*   **`T14_TickAdvancesSoC`**: Validates that time progression correctly converts allocated kW power into kWh energy added to the vehicle battery.
+*   **`T15_AutoDisconnectAt100`**: Validates the state machine's ability to sever sessions natively when an EV reaches 100% SoC.
+*   **`T16_FullChargeCycle`**: Tests an entire end-to-end charge from 10% to 100% across multiple ticks, ensuring mathematically precise energy accumulation without floating-point drift.
+*   **`T17_SimultaneousBESSandEV`**: Validates the complex interplay where a BESS is discharging to support an EV, but stops exactly when the EV reaches 100% and auto-disconnects in the exact same tick.
+
+### 4. Integration & Edge Cases
+*   **`T18_EndToEnd`**: A full lifecycle integration test. It simulates a sequence of API calls over time: a car connects, the BESS discharges to boost it, the simulation ticks forward, the car updates its charging curve (power request drops), and finally, the car reaches 100% SoC and is safely and automatically disconnected by the Orchestrator.
+*   **`T19_EdgeCase_SimultaneousHit`**: **(Concurrency)** Fires 100 concurrent HTTP requests (Connect/Disconnect/PowerUpdate) against the Orchestrator to validate `sync.RWMutex` lock safety and prevent race conditions.
+*   **`T20_Performance`**: Benchmarks the allocation algorithm to prove sub-millisecond execution times for real-time responsiveness (<1s latency requirement).
+
+### 5. Configuration & Initialization
+*   **`TestLoadStation`**: Validates the JSON parsing, strict structural integrity checks (DTO validation), and correct hierarchical mapping of physical infrastructure (EVSEs and Connectors) into the core domain models.
