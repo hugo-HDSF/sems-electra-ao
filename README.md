@@ -132,23 +132,23 @@ Instead of a simple division (which wastes power when a vehicle hits its cap), t
 
 ```mermaid
 flowchart LR
-    Start[Start Allocation] --> Gather[1. gatherDemands\nFind all active sessions requesting power]
-    Gather --> Budget[2. computeAvailablePower\nBudget = Grid Limit + BESS Discharge]
+    Start((Start)) --> Gather[1. gatherDemands<br>Find active sessions]
+    Gather --> Budget[2. computeAvailablePower<br>Grid Limit + BESS]
     
-    Budget --> SplitSite[3. computeSiteShares\nDistribute Budget to EVSEs]
-    SplitSite --> Iter1{Is an EVSE capped\nby MaxPower?}
+    Budget --> SplitSite[3. computeSiteShares<br>Distribute Budget]
+    SplitSite --> Iter1{EVSE capped<br>by MaxPower?}
     
-    Iter1 -- Yes --> Cap1[Cap that EVSE.\nThrow excess power back into Budget]
+    Iter1 -- Yes --> Cap1[Cap EVSE &<br>Return excess]
     Cap1 --> SplitSite
     
-    Iter1 -- No --> SplitConn[4. computeConnectorAllocations\nDistribute EVSE Share to its Connectors]
+    Iter1 -- No --> SplitConn[4. computeConnectorAllocations<br>Distribute EVSE Share]
     
-    SplitConn --> Iter2{Is a Connector capped\nby EV limits?}
+    SplitConn --> Iter2{Connector capped<br>by EV limits?}
     
-    Iter2 -- Yes --> Cap2[Cap that Connector.\nThrow excess power back into EVSE Share]
+    Iter2 -- Yes --> Cap2[Cap Connector &<br>Return excess]
     Cap2 --> SplitConn
     
-    Iter2 -- No --> Done[5. Return Final Allocations]
+    Iter2 -- No --> Done(((Done)))
 ```
 
 **How `proportionalSplitWithLimits` Works (The Loop):**
