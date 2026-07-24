@@ -1,5 +1,4 @@
-.PHONY: build test run clean docker-up docker-down
-
+.PHONY: build test run clean down
 
 # --- Dockerized Commands (Recommended) ---
 
@@ -12,6 +11,10 @@ test:
 # It uses a multi-stage Dockerfile to compile the app and run it in a tiny Alpine image.
 build:
 	docker-compose up --build
+
+# Stops and removes the Docker containers.
+down:
+	docker-compose down
 
 # --- Utilities ---
 
