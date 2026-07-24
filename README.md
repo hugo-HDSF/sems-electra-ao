@@ -95,35 +95,29 @@ flowchart TD
 To understand the core logic of the simulation, we must look at how time and power are processed. The system relies on two main "hard functions": `Tick()` (the time engine) and `Allocate()` (the power distributor).
 
 #### 1. The Time Engine: `SiteController.Tick(duration)`
-Because the simulation does not use real-time `time.Now()`, the state only advances when `Tick()` is called. This function serves as the central orchestrator of all side-effects.
+Because the simulation does not use real-time `time.Now()`, the station's state only advances when `Tick()` is called. This is the heartbeat of the system.
 
 ```mermaid
-sequenceDiagram
-    participant API as API Handler
-    participant SC as SiteController
-    participant Session as domain.Session
-    participant Alloc as domain.Allocate()
-
-    API->>SC: Tick(1 Minute)
-    activate SC
-    SC->>SC: 1. Acquire sync.RWMutex (Lock)
-    SC->>SC: 2. advanceTime(ts + duration)
+flowchart LR
+    API[API Request] --> Lock[1. Lock Station State]
+    Lock --> Time[2. Advance Time]
+    Time --> Battery[3. Fill EV Batteries]
+    Battery --> CheckFull{Is any EV at 100%?}
     
-    loop Every Active Connector
-        SC->>Session: 3. UpdateSoC(duration)
-        Note over Session: Increases Battery kWh based on<br>previously AllocatedPower
-        alt If EV SoC reaches 100%
-            SC->>SC: 4. Auto-Disconnect EV
-        end
-    end
+    CheckFull -- Yes --> Disconnect[4. Auto-Disconnect EV]
+    Disconnect --> Reallocate
+    CheckFull -- No --> Reallocate[5. Reallocate Power]
     
-    SC->>Alloc: 5. reallocate()
-    Note over SC,Alloc: Power is recalculated because<br>demands may have dropped or<br>vehicles may have disconnected.
-    
-    SC->>API: 6. broadcast() via SSE
-    SC-->>API: 7. Return TickResult
-    deactivate SC
+    Reallocate --> SSE[6. Broadcast New State via SSE]
 ```
+
+**Step-by-step breakdown (Easy to explain):**
+1. **Lock State:** Pause any other incoming requests to prevent data conflicts.
+2. **Advance Time:** Move the simulation clock forward (e.g., +1 minute).
+3. **Fill Batteries:** Add energy (kWh) to every connected car based on how much power they were allocated in the previous minute.
+4. **Auto-Disconnect:** If a car reaches 100% battery, unplug it automatically.
+5. **Reallocate Power:** Because cars might have left, or their charging curves changed, we run the Allocation algorithm to perfectly balance the power again.
+6. **Broadcast:** Send the brand new state instantly to the web dashboard so users see the update in real-time.
 
 #### 2. The Power Distributor: `domain.Allocate(station)`
 The hardest algorithmic challenge is distributing a limited power budget fairly when hardware constraints (like a 300kW cable limit) cap what an individual vehicle can receive. 
@@ -132,23 +126,23 @@ Instead of a simple division (which wastes power when a vehicle hits its cap), t
 
 ```mermaid
 flowchart LR
-    Start((Start)) --> Gather[1. gatherDemands<br>Find active sessions]
-    Gather --> Budget[2. computeAvailablePower<br>Grid Limit + BESS]
+    Start[Start Allocation] --> Gather[1. gatherDemands\nFind all active sessions requesting power]
+    Gather --> Budget[2. computeAvailablePower\nBudget = Grid Limit + BESS Discharge]
     
-    Budget --> SplitSite[3. computeSiteShares<br>Distribute Budget]
-    SplitSite --> Iter1{EVSE capped<br>by MaxPower?}
+    Budget --> SplitSite[3. computeSiteShares\nDistribute Budget to EVSEs]
+    SplitSite --> Iter1{Is an EVSE capped\nby MaxPower?}
     
-    Iter1 -- Yes --> Cap1[Cap EVSE &<br>Return excess]
+    Iter1 -- Yes --> Cap1[Cap that EVSE.\nThrow excess power back into Budget]
     Cap1 --> SplitSite
     
-    Iter1 -- No --> SplitConn[4. computeConnectorAllocations<br>Distribute EVSE Share]
+    Iter1 -- No --> SplitConn[4. computeConnectorAllocations\nDistribute EVSE Share to its Connectors]
     
-    SplitConn --> Iter2{Connector capped<br>by EV limits?}
+    SplitConn --> Iter2{Is a Connector capped\nby EV limits?}
     
-    Iter2 -- Yes --> Cap2[Cap Connector &<br>Return excess]
+    Iter2 -- Yes --> Cap2[Cap that Connector.\nThrow excess power back into EVSE Share]
     Cap2 --> SplitConn
     
-    Iter2 -- No --> Done(((Done)))
+    Iter2 -- No --> Done[5. Return Final Allocations]
 ```
 
 **How `proportionalSplitWithLimits` Works (The Loop):**
