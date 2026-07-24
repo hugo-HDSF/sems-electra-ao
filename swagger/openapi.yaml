@@ -54,6 +54,28 @@ paths:
                 timestamp:
                   type: string
                   format: date-time
+            examples:
+              StandardEV:
+                summary: Standard EV (150kW, 75kWh, 20% SoC) on conn-1
+                value:
+                  connectorId: "conn-1"
+                  evMaxPowerKW: 150
+                  evBatteryKWh: 75
+                  evSoC: 0.20
+              FastEV:
+                summary: Fast EV (350kW, 100kWh, 10% SoC) on conn-2
+                value:
+                  connectorId: "conn-2"
+                  evMaxPowerKW: 350
+                  evBatteryKWh: 100
+                  evSoC: 0.10
+              SlowEV:
+                summary: Slow EV (50kW, 40kWh, 50% SoC) on conn-3
+                value:
+                  connectorId: "conn-3"
+                  evMaxPowerKW: 50
+                  evBatteryKWh: 40
+                  evSoC: 0.50
       responses:
         '200':
           description: Session created
@@ -72,6 +94,15 @@ paths:
                 timestamp:
                   type: string
                   format: date-time
+            examples:
+              DisconnectConn1:
+                summary: Disconnect conn-1
+                value:
+                  connectorId: "conn-1"
+              DisconnectConn2:
+                summary: Disconnect conn-2
+                value:
+                  connectorId: "conn-2"
       responses:
         '200':
           description: Disconnected
@@ -94,6 +125,13 @@ paths:
                 timestamp:
                   type: string
                   format: date-time
+            examples:
+              ThrottleConn1:
+                summary: Throttle conn-1 down to 50kW
+                value:
+                  connectorId: "conn-1"
+                  requestedPowerKW: 50
+                  evSoC: 0.60
       responses:
         '200':
           description: Power updated
