@@ -295,7 +295,8 @@ func (sc *SiteController) Unsubscribe(ch chan StationStatus) {
 // broadcast sends the latest StationStatus to all connected SSE clients.
 // It is called automatically after any state mutation (Tick, Connect, Disconnect).
 func (sc *SiteController) broadcast() {
-	status := sc.GetStatus()
+	// MUST use getStatusLocked because broadcast is always called from within a locked context (Tick, Connect, etc.)
+	status := sc.getStatusLocked()
 	
 	sc.subMu.Lock()
 	defer sc.subMu.Unlock()
