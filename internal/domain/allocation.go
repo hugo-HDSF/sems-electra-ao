@@ -36,9 +36,10 @@ func computeAvailablePower(station *Station) float64 {
 }
 
 // computeSiteShares allocates the available station power proportionally among EVSEs
-// based on the total demand of the connectors on each EVSE.
+// based on the total demand of the connectors on each EVSE, redistributing excess power.
 func computeSiteShares(station *Station, demands map[string]float64, available float64) map[string]float64 {
 	evseDemands := make(map[string]float64)
+	evseLimits := make(map[string]float64)
 	for _, evse := range station.EVSEs {
 		var sum float64
 		for _, conn := range evse.Connectors {
@@ -46,24 +47,15 @@ func computeSiteShares(station *Station, demands map[string]float64, available f
 		}
 		if sum > 0 {
 			evseDemands[evse.ID] = sum
+			evseLimits[evse.ID] = evse.MaxPower
 		}
 	}
 
-	rawShares := proportionalSplit(evseDemands, available)
-
-	// Cap each EVSE's share to its MaxPower
-	evseShares := make(map[string]float64)
-	for _, evse := range station.EVSEs {
-		if share, ok := rawShares[evse.ID]; ok {
-			evseShares[evse.ID] = min(share, evse.MaxPower)
-		}
-	}
-
-	return evseShares
+	return proportionalSplitWithLimits(evseDemands, evseLimits, available)
 }
 
 // computeConnectorAllocations distributes the EVSE-level power allocation
-// proportionally among the connectors on that EVSE.
+// proportionally among the connectors on that EVSE, redistributing excess power.
 func computeConnectorAllocations(station *Station, evseShares map[string]float64, demands map[string]float64) map[string]float64 {
 	allocations := make(map[string]float64)
 
@@ -74,9 +66,15 @@ func computeConnectorAllocations(station *Station, evseShares map[string]float64
 		}
 
 		connDemands := make(map[string]float64)
+		connLimits := make(map[string]float64)
 		for _, conn := range evse.Connectors {
 			if d, ok := demands[conn.ID]; ok {
 				connDemands[conn.ID] = d
+				limit := d
+				if conn.Session != nil {
+					limit = min(limit, conn.Session.EVMaxPower)
+				}
+				connLimits[conn.ID] = limit
 			}
 		}
 
@@ -84,11 +82,11 @@ func computeConnectorAllocations(station *Station, evseShares map[string]float64
 			continue
 		}
 
-		connShares := proportionalSplit(connDemands, share)
+		connShares := proportionalSplitWithLimits(connDemands, connLimits, share)
 
 		for _, conn := range evse.Connectors {
 			if connShare, ok := connShares[conn.ID]; ok {
-				allocations[conn.ID] = capAtLimits(connShare, conn.Session)
+				allocations[conn.ID] = connShare
 			}
 		}
 	}
@@ -96,37 +94,49 @@ func computeConnectorAllocations(station *Station, evseShares map[string]float64
 	return allocations
 }
 
-// proportionalSplit splits a budget among participants based on their requests.
-func proportionalSplit(requests map[string]float64, budget float64) map[string]float64 {
+// proportionalSplitWithLimits splits a budget among participants based on their requests,
+// capping each participant at their respective limit, and redistributing any excess budget.
+func proportionalSplitWithLimits(requests map[string]float64, limits map[string]float64, budget float64) map[string]float64 {
 	shares := make(map[string]float64)
-	var totalRequest float64
-	for _, req := range requests {
-		totalRequest += req
+	active := make(map[string]bool)
+	for k := range requests {
+		active[k] = true
 	}
 
-	if totalRequest == 0 || budget == 0 {
-		return shares
-	}
-
-	if totalRequest <= budget {
-		for id, req := range requests {
-			shares[id] = req
+	for len(active) > 0 && budget > 0.001 {
+		var totalActiveReq float64
+		for id := range active {
+			totalActiveReq += requests[id]
 		}
-		return shares
-	}
 
-	for id, req := range requests {
-		shares[id] = (req / totalRequest) * budget
+		if totalActiveReq <= 0 {
+			break
+		}
+
+		var anyCapped bool
+		for id := range active {
+			req := requests[id]
+			fairShare := (req / totalActiveReq) * budget
+			limit := limits[id]
+			
+			if fairShare >= limit || fairShare >= req {
+				actualShare := min(limit, req)
+				shares[id] += actualShare
+				budget -= actualShare
+				delete(active, id)
+				anyCapped = true
+			}
+		}
+
+		if !anyCapped {
+			// No limits hit this round, everyone gets their fair share
+			for id := range active {
+				req := requests[id]
+				fairShare := (req / totalActiveReq) * budget
+				shares[id] += fairShare
+			}
+			break
+		}
 	}
 	return shares
-}
-
-// capAtLimits ensures the final allocation does not exceed the session constraints.
-func capAtLimits(allocated float64, session *Session) float64 {
-	if session == nil {
-		return 0
-	}
-	v := min(allocated, session.EVMaxPower)
-	v = min(v, session.RequestedPower)
-	return v
 }
