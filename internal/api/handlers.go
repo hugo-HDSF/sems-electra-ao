@@ -8,6 +8,7 @@ import (
 	"sems/internal/domain"
 )
 
+// routes registers all API endpoints on the Server's router.
 func (s *Server) routes() {
 	s.router.HandleFunc("POST /api/v1/station/config", s.handleConfig)
 	s.router.HandleFunc("POST /api/v1/events/connect", s.handleConnect)
@@ -25,6 +26,7 @@ func (s *Server) routes() {
 	s.router.Handle("/", http.FileServer(http.Dir("./web")))
 }
 
+// handleConfig processes a new station configuration payload.
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	var station domain.Station
 	if err := json.NewDecoder(r.Body).Decode(&station); err != nil {
@@ -32,17 +34,14 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Assume SiteController has a Reconfigure method
-	// We'll add this method or just log for now if we can't mutate safely
 	s.logger.Info("received station config payload", "stationId", station.ID)
-	// (Reconfigure logic omitted for simplicity unless requested)
-
 	json.NewEncoder(w).Encode(ConfigResponse{
 		Status:    "configured",
 		StationID: station.ID,
 	})
 }
 
+// handleConnect processes a new EV connection and returns the allocated power.
 func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	var req ConnectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -62,6 +61,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleDisconnect processes an EV disconnection.
 func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	var req DisconnectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -78,6 +78,7 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(StatusResponse{Status: "disconnected"})
 }
 
+// handlePowerUpdate processes an EV's updated power request and SoC.
 func (s *Server) handlePowerUpdate(w http.ResponseWriter, r *http.Request) {
 	var req PowerUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -103,6 +104,7 @@ func (s *Server) handlePowerUpdate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(PowerUpdateResponse{AllocatedPowerKW: allocated})
 }
 
+// handleTick advances the simulation time based on the requested duration.
 func (s *Server) handleTick(w http.ResponseWriter, r *http.Request) {
 	var req TickRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -121,6 +123,7 @@ func (s *Server) handleTick(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleStatus returns the current snapshot of the station.
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.controller.GetStatus())
@@ -129,25 +132,25 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 // handleStatusStream maintains a persistent Server-Sent Events (SSE) connection
 // and pushes real-time station updates to the client whenever the state changes.
 func (s *Server) handleStatusStream(w http.ResponseWriter, r *http.Request) {
-	// 1. Set required headers for SSE
+	// Set required headers for SSE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	// Optional: CORS headers if needed for other frontends
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// 2. Ensure the response writer supports flushing
+	// Ensure the response writer supports flushing
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
-	// 3. Register with the orchestrator to receive updates
+	// Register with the orchestrator to receive updates
 	ch := s.controller.Subscribe()
 	defer s.controller.Unsubscribe(ch)
 
-	// 4. Listen for updates or client disconnection
+	// Listen for updates or client disconnection
 	for {
 		select {
 		case status := <-ch:
@@ -170,6 +173,7 @@ func (s *Server) handleStatusStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleHealth returns a simple 200 OK for health checks.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(StatusResponse{Status: "ok"})
 }

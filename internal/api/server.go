@@ -8,12 +8,14 @@ import (
 	"sems/internal/service"
 )
 
+// Server handles all HTTP REST endpoints and SSE streams.
 type Server struct {
 	controller *service.SiteController
 	logger     *slog.Logger
 	router     *http.ServeMux
 }
 
+// NewServer creates a new API Server instance with registered routes.
 func NewServer(controller *service.SiteController, logger *slog.Logger) *Server {
 	s := &Server{
 		controller: controller,
@@ -26,6 +28,7 @@ func NewServer(controller *service.SiteController, logger *slog.Logger) *Server 
 
 
 
+// ServeHTTP implements the http.Handler interface and adds request logging.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.router.ServeHTTP(w, r)

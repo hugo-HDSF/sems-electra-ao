@@ -1,6 +1,6 @@
 package domain
 
-// Station — top-level aggregate, loaded from config
+// Station represents the top-level aggregate loaded from configuration.
 type Station struct {
 	ID        string
 	GridLimit float64 // kW — max import from grid
@@ -8,14 +8,14 @@ type Station struct {
 	BESS      *BESS // nil if no BESS
 }
 
-// EVSE — Electric Vehicle Supply Equipment (physical charger hardware)
+// EVSE represents Electric Vehicle Supply Equipment (physical charger hardware).
 type EVSE struct {
 	ID         string
 	MaxPower   float64 // kW — EVSE hardware limit
 	Connectors []*Connector
 }
 
-// Connector — physical plug (CCS, Type2)
+// Connector represents a physical plug (e.g., CCS, Type2).
 type Connector struct {
 	ID      string
 	Type    ConnectorType
@@ -24,7 +24,7 @@ type Connector struct {
 	Session *Session // nil if no active session
 }
 
-// ConnectorType — physical connector standard
+// ConnectorType defines the physical connector standard.
 type ConnectorType string
 
 const (
@@ -32,7 +32,7 @@ const (
 	ConnectorType2_AC ConnectorType = "TYPE_2_AC"
 )
 
-// ConnectorStatus
+// ConnectorStatus defines the operational states of a connector.
 type ConnectorStatus string
 
 const (

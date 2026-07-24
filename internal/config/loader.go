@@ -7,6 +7,7 @@ import (
 	"sems/internal/domain"
 )
 
+// stationConfig represents the JSON structure for the entire station.
 type stationConfig struct {
 	ID          string        `json:"id"`
 	GridLimitKW float64       `json:"gridLimitKW"`
@@ -14,17 +15,20 @@ type stationConfig struct {
 	BESS        *bessConfig   `json:"bess,omitempty"`
 }
 
+// evseConfig represents the JSON structure for an EVSE.
 type evseConfig struct {
 	ID         string            `json:"id"`
 	MaxPowerKW float64           `json:"maxPowerKW"`
 	Connectors []connectorConfig `json:"connectors"`
 }
 
+// connectorConfig represents the JSON structure for a connector.
 type connectorConfig struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
 }
 
+// bessConfig represents the JSON structure for the battery storage system.
 type bessConfig struct {
 	CapacityKWh         float64 `json:"capacityKWh"`
 	InitialSoC          float64 `json:"initialSoC"`
@@ -34,6 +38,7 @@ type bessConfig struct {
 
 // LoadStation loads a Station from a JSON configuration file.
 func LoadStation(path string) (*domain.Station, error) {
+	// Read and parse the raw JSON payload
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -44,22 +49,24 @@ func LoadStation(path string) (*domain.Station, error) {
 		return nil, err
 	}
 
+	// Map the JSON DTOs into the strict core Domain entities
 	station := &domain.Station{
 		ID:        cfg.ID,
 		GridLimit: cfg.GridLimitKW,
 		EVSEs:     make([]*domain.EVSE, 0, len(cfg.EVSEs)),
 	}
 
-	for _, eCfg := range cfg.EVSEs {
+	// Initialize the nested hardware hierarchy (EVSEs -> Connectors)
+	for _, evseCfg := range cfg.EVSEs {
 		evse := &domain.EVSE{
-			ID:         eCfg.ID,
-			MaxPower:   eCfg.MaxPowerKW,
-			Connectors: make([]*domain.Connector, 0, len(eCfg.Connectors)),
+			ID:         evseCfg.ID,
+			MaxPower:   evseCfg.MaxPowerKW,
+			Connectors: make([]*domain.Connector, 0, len(evseCfg.Connectors)),
 		}
-		for _, cCfg := range eCfg.Connectors {
+		for _, connCfg := range evseCfg.Connectors {
 			evse.Connectors = append(evse.Connectors, &domain.Connector{
-				ID:     cCfg.ID,
-				Type:   domain.ConnectorType(cCfg.Type),
+				ID:     connCfg.ID,
+				Type:   domain.ConnectorType(connCfg.Type),
 				EVSEID: evse.ID,
 				Status: domain.StatusAvailable,
 			})

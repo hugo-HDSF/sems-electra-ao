@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// BESS — Battery Energy Storage System
+// BESS represents a Battery Energy Storage System.
 type BESS struct {
 	Capacity          float64 // kWh — total storage capacity
 	SoC               float64 // 0.0–1.0 — displayed with 2-digit precision (e.g. 0.6034 → "60.34%")
@@ -56,7 +56,7 @@ func (b *BESS) FormatSoC() string {
 	return fmt.Sprintf("%.2f%%", b.SoC*100)
 }
 
-// BESSStatus
+// BESSStatus defines the operational states of the battery.
 type BESSStatus string
 
 const (

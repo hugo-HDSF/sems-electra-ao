@@ -2,7 +2,7 @@ package domain
 
 import "time"
 
-// Session — one EV ↔ one Connector charging event
+// Session represents a charging event between one EV and one Connector.
 type Session struct {
 	ID             string
 	ConnectorID    string
@@ -33,7 +33,7 @@ func (s *Session) IsFull() bool {
 	return s != nil && s.EVSoC >= 1.0
 }
 
-// SessionState
+// SessionState defines the operational states of a charging session.
 type SessionState string
 
 const (

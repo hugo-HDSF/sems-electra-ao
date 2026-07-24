@@ -131,7 +131,7 @@ func (sc *SiteController) UpdatePowerRequest(connectorID string, requestedKW, ev
 	return nil
 }
 
-// TickResult — returned by Tick() with simulation state after advancement
+// TickResult represents the simulation state returned by Tick after time advancement.
 type TickResult struct {
 	AdvancedBy   time.Duration
 	Timestamp    time.Time
@@ -252,6 +252,7 @@ func (sc *SiteController) getStatusLocked() StationStatus {
 }
 
 
+// StationStatus represents a snapshot of the entire station's state.
 type StationStatus struct {
 	StationID          string
 	GridLimitKW        float64
@@ -311,12 +312,14 @@ func (sc *SiteController) broadcast() {
 	}
 }
 
+// EVSEStatus represents the current state of an EVSE in a DTO format.
 type EVSEStatus struct {
 	ID         string
 	MaxPowerKW float64
 	Connectors []ConnectorStatus
 }
 
+// ConnectorStatus represents the current state of a connector in a DTO format.
 type ConnectorStatus struct {
 	ID      string
 	Type    string
@@ -324,6 +327,7 @@ type ConnectorStatus struct {
 	Session *SessionStatus
 }
 
+// BESSStatus represents the current state of the battery in a DTO format.
 type BESSStatus struct {
 	SoC                 float64
 	SoCPercent          string
@@ -334,6 +338,7 @@ type BESSStatus struct {
 	CapacityKWh         float64
 }
 
+// SessionStatus represents the current state of a charging session in a DTO format.
 type SessionStatus struct {
 	ConnectorID      string
 	EVSoC            float64

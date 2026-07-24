@@ -8,6 +8,7 @@ import (
 	"sems/internal/domain"
 )
 
+// SiteController orchestrates the charging station's state, managing time, power allocation, and SSE subscriptions.
 type SiteController struct {
 	station       *domain.Station
 	lastTimestamp time.Time

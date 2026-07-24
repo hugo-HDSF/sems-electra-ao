@@ -98,11 +98,14 @@ func computeConnectorAllocations(station *Station, evseShares map[string]float64
 // capping each participant at their respective limit, and redistributing any excess budget.
 func proportionalSplitWithLimits(requests map[string]float64, limits map[string]float64, budget float64) map[string]float64 {
 	shares := make(map[string]float64)
+	
+	// Create the initial pool of active participants that still need power
 	active := make(map[string]bool)
 	for k := range requests {
 		active[k] = true
 	}
 
+	// Continuously redistribute the budget as long as we have active participants and power to give
 	for len(active) > 0 && budget > 0.001 {
 		var totalActiveReq float64
 		for id := range active {
@@ -116,9 +119,13 @@ func proportionalSplitWithLimits(requests map[string]float64, limits map[string]
 		var anyCapped bool
 		for id := range active {
 			req := requests[id]
+			
+			// Calculate this participant's mathematical fair share of the remaining budget
 			fairShare := (req / totalActiveReq) * budget
 			limit := limits[id]
 			
+			// If the fair share exceeds physical limits, cap the participant,
+			// subtract their usage from the budget, and remove them from the active pool
 			if fairShare >= limit || fairShare >= req {
 				actualShare := min(limit, req)
 				shares[id] += actualShare
@@ -129,7 +136,8 @@ func proportionalSplitWithLimits(requests map[string]float64, limits map[string]
 		}
 
 		if !anyCapped {
-			// No limits hit this round, everyone gets their fair share
+			// No limits hit this round, meaning the remaining budget can be perfectly 
+			// distributed. Grant everyone their exact fair share and break the loop.
 			for id := range active {
 				req := requests[id]
 				fairShare := (req / totalActiveReq) * budget
