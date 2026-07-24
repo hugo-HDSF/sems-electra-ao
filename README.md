@@ -90,6 +90,74 @@ flowchart TD
      - `Server` & `Handlers`: Handles parsing JSON requests, returning HTTP status codes, and serving the Swagger UI and Web Dashboard.
      - **SSE Streaming**: Maintains an open connection (`http.Flusher`) to connected web clients. When the `SiteController` broadcasts a state change, the API layer immediately flushes the new JSON representation to the browser for true real-time updates.
 
+### Deep Dive: Core Algorithms & Sequence
+
+To understand the core logic of the simulation, we must look at how time and power are processed. The system relies on two main "hard functions": `Tick()` (the time engine) and `Allocate()` (the power distributor).
+
+#### 1. The Time Engine: `SiteController.Tick(duration)`
+Because the simulation does not use real-time `time.Now()`, the state only advances when `Tick()` is called. This function serves as the central orchestrator of all side-effects.
+
+```mermaid
+sequenceDiagram
+    participant API as API Handler
+    participant SC as SiteController
+    participant Session as domain.Session
+    participant Alloc as domain.Allocate()
+
+    API->>SC: Tick(1 Minute)
+    activate SC
+    SC->>SC: 1. Acquire sync.RWMutex (Lock)
+    SC->>SC: 2. advanceTime(ts + duration)
+    
+    loop Every Active Connector
+        SC->>Session: 3. UpdateSoC(duration)
+        Note over Session: Increases Battery kWh based on<br>previously AllocatedPower
+        alt If EV SoC reaches 100%
+            SC->>SC: 4. Auto-Disconnect EV
+        end
+    end
+    
+    SC->>Alloc: 5. reallocate()
+    Note over SC,Alloc: Power is recalculated because<br>demands may have dropped or<br>vehicles may have disconnected.
+    
+    SC->>API: 6. broadcast() via SSE
+    SC-->>API: 7. Return TickResult
+    deactivate SC
+```
+
+#### 2. The Power Distributor: `domain.Allocate(station)`
+The hardest algorithmic challenge is distributing a limited power budget fairly when hardware constraints (like a 300kW cable limit) cap what an individual vehicle can receive. 
+
+Instead of a simple division (which wastes power when a vehicle hits its cap), the system uses an **Iterative Proportional Split with Limits** (`proportionalSplitWithLimits`).
+
+```mermaid
+flowchart LR
+    Start[Start Allocation] --> Gather[1. gatherDemands\nFind all active sessions requesting power]
+    Gather --> Budget[2. computeAvailablePower\nBudget = Grid Limit + BESS Discharge]
+    
+    Budget --> SplitSite[3. computeSiteShares\nDistribute Budget to EVSEs]
+    SplitSite --> Iter1{Is an EVSE capped\nby MaxPower?}
+    
+    Iter1 -- Yes --> Cap1[Cap that EVSE.\nThrow excess power back into Budget]
+    Cap1 --> SplitSite
+    
+    Iter1 -- No --> SplitConn[4. computeConnectorAllocations\nDistribute EVSE Share to its Connectors]
+    
+    SplitConn --> Iter2{Is a Connector capped\nby EV limits?}
+    
+    Iter2 -- Yes --> Cap2[Cap that Connector.\nThrow excess power back into EVSE Share]
+    Cap2 --> SplitConn
+    
+    Iter2 -- No --> Done[5. Return Final Allocations]
+```
+
+**How `proportionalSplitWithLimits` Works (The Loop):**
+1. **Calculate Fair Share:** Divide the remaining budget proportionally based on each participant's requested demand.
+2. **Apply Constraints:** Check if any participant's fair share exceeds their physical limit.
+3. **Cap & Harvest:** If they exceed the limit, lock them at their maximum limit, subtract that from the budget, and remove them from the active pool.
+4. **Redistribute:** Take the excess power they couldn't use and loop back to step 1, redistributing the leftover budget among the *remaining* participants.
+5. **Terminate:** The loop ends when no participant hits a limit, ensuring 100% of available power is utilized without violating hardware constraints.
+
 ## Design Constraints
 - Pure logic: no external DB or real-time `time.Now()` is used in the simulation logic.
 - 2-digit precision for SoC display formats.
