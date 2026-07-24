@@ -161,6 +161,8 @@ func (sc *SiteController) Tick(duration time.Duration) TickResult {
 
 	sc.reallocate()
 
+	sc.logger.Info("Simulation ticked", "duration", duration.String(), "newTimestamp", ts.Format(time.RFC3339))
+
 	return TickResult{
 		AdvancedBy:   duration,
 		Timestamp:    ts,

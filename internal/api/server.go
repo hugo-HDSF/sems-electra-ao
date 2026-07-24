@@ -3,6 +3,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"sems/internal/service"
 )
@@ -24,5 +25,7 @@ func NewServer(controller *service.SiteController, logger *slog.Logger) *Server 
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.router.ServeHTTP(w, r)
+	s.logger.Info("HTTP Request", "method", r.Method, "path", r.URL.Path, "duration", time.Since(start).String())
 }
