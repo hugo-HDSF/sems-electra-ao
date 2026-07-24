@@ -170,25 +170,43 @@
 
                 // Update Table
                 const tbody = document.getElementById('sessionsTableBody');
-                if (!data.Sessions || data.Sessions.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="py-8 text-center text-slate-500 italic">No active sessions</td></tr>';
+                if (!data.EVSEs || data.EVSEs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="py-8 text-center text-slate-500 italic">No connectors found</td></tr>';
                     return;
                 }
 
-                tbody.innerHTML = data.Sessions.map(sess => `
-                    <tr class="hover:bg-slate-800/50 transition-colors">
-                        <td class="py-4 px-4 font-medium text-white">${sess.ConnectorID}</td>
-                        <td class="py-4 px-4">
-                            <div class="flex items-center gap-3">
-                                <span class="w-12 font-medium">${sess.EVSoCPercent}</span>
-                                <div class="w-24 bg-slate-700 h-2 rounded-full overflow-hidden">
-                                    <div class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: ${sess.EVSoC * 100}%"></div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="py-4 px-4 text-right font-medium text-sky-400">${sess.AllocatedPowerKW.toFixed(2)} kW</td>
-                    </tr>
-                `).join('');
+                let html = '';
+                data.EVSEs.forEach(evse => {
+                    html += `<tr class="bg-slate-800/80"><td colspan="3" class="py-2 px-4 font-bold text-slate-400 text-xs uppercase tracking-wider">${evse.ID} <span class="font-normal text-slate-500 ml-2">(Max: ${evse.MaxPowerKW} kW)</span></td></tr>`;
+                    
+                    evse.Connectors.forEach(conn => {
+                        if (conn.Session) {
+                            html += `
+                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                <td class="py-4 px-4 font-medium text-white">${conn.ID} <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 ml-2">Charging</span></td>
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-12 font-medium">${conn.Session.EVSoCPercent}</span>
+                                        <div class="w-24 bg-slate-700 h-2 rounded-full overflow-hidden">
+                                            <div class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: ${conn.Session.EVSoC * 100}%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-right font-medium text-sky-400">${conn.Session.AllocatedPowerKW.toFixed(2)} kW</td>
+                            </tr>
+                            `;
+                        } else {
+                            html += `
+                            <tr class="hover:bg-slate-800/50 transition-colors opacity-60">
+                                <td class="py-4 px-4 font-medium text-slate-400">${conn.ID} <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-400 ml-2">Available</span></td>
+                                <td class="py-4 px-4 text-slate-500">---</td>
+                                <td class="py-4 px-4 text-right text-slate-500">0.00 kW</td>
+                            </tr>
+                            `;
+                        }
+                    });
+                });
+                tbody.innerHTML = html;
                 
             } catch (err) {
                 console.error("Failed to fetch status", err);

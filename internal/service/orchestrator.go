@@ -181,20 +181,35 @@ func (sc *SiteController) GetStatus() StationStatus {
 func (sc *SiteController) getStatusLocked() StationStatus {
 	var totalAllocated float64
 	sessions := []SessionStatus{}
+	var evses []EVSEStatus
 	
 	for _, evse := range sc.station.EVSEs {
+		var conns []ConnectorStatus
 		for _, conn := range evse.Connectors {
+			var sess *SessionStatus
 			if conn.Session != nil && conn.Session.State == domain.SessionActive {
 				totalAllocated += conn.Session.AllocatedPower
-				sessions = append(sessions, SessionStatus{
+				sess = &SessionStatus{
 					ConnectorID:      conn.ID,
 					EVSoC:            conn.Session.EVSoC,
 					EVSoCPercent:     fmt.Sprintf("%.2f%%", conn.Session.EVSoC*100),
 					AllocatedPowerKW: conn.Session.AllocatedPower,
 					EVBatteryKWh:     conn.Session.EVBatteryKWh,
-				})
+				}
+				sessions = append(sessions, *sess)
 			}
+			conns = append(conns, ConnectorStatus{
+				ID:      conn.ID,
+				Type:    string(conn.Type),
+				Status:  string(conn.Status),
+				Session: sess,
+			})
 		}
+		evses = append(evses, EVSEStatus{
+			ID:         evse.ID,
+			MaxPowerKW: evse.MaxPower,
+			Connectors: conns,
+		})
 	}
 
 	var bessStatus *BESSStatus
@@ -234,6 +249,20 @@ type StationStatus struct {
 	LastEventTimestamp time.Time
 	BESS               *BESSStatus
 	Sessions           []SessionStatus
+	EVSEs              []EVSEStatus
+}
+
+type EVSEStatus struct {
+	ID         string
+	MaxPowerKW float64
+	Connectors []ConnectorStatus
+}
+
+type ConnectorStatus struct {
+	ID      string
+	Type    string
+	Status  string
+	Session *SessionStatus
 }
 
 type BESSStatus struct {

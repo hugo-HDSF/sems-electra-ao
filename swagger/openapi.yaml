@@ -56,23 +56,23 @@ paths:
                   format: date-time
             examples:
               StandardEV:
-                summary: Standard EV (150kW, 75kWh, 20% SoC) on conn-1
+                summary: Standard EV (150kW, 75kWh, 20% SoC) on conn-1a
                 value:
-                  connectorId: "conn-1"
+                  connectorId: "conn-1a"
                   evMaxPowerKW: 150
                   evBatteryKWh: 75
                   evSoC: 0.20
               FastEV:
-                summary: Fast EV (350kW, 100kWh, 10% SoC) on conn-2
+                summary: Fast EV (350kW, 100kWh, 10% SoC) on conn-2a
                 value:
-                  connectorId: "conn-2"
+                  connectorId: "conn-2a"
                   evMaxPowerKW: 350
                   evBatteryKWh: 100
                   evSoC: 0.10
               SlowEV:
-                summary: Slow EV (50kW, 40kWh, 50% SoC) on conn-3
+                summary: Slow EV (50kW, 40kWh, 50% SoC) on conn-3a
                 value:
-                  connectorId: "conn-3"
+                  connectorId: "conn-3a"
                   evMaxPowerKW: 50
                   evBatteryKWh: 40
                   evSoC: 0.50
@@ -95,14 +95,14 @@ paths:
                   type: string
                   format: date-time
             examples:
-              DisconnectConn1:
-                summary: Disconnect conn-1
+              DisconnectConn1a:
+                summary: Disconnect conn-1a
                 value:
-                  connectorId: "conn-1"
-              DisconnectConn2:
-                summary: Disconnect conn-2
+                  connectorId: "conn-1a"
+              DisconnectConn2a:
+                summary: Disconnect conn-2a
                 value:
-                  connectorId: "conn-2"
+                  connectorId: "conn-2a"
       responses:
         '200':
           description: Disconnected
@@ -126,10 +126,10 @@ paths:
                   type: string
                   format: date-time
             examples:
-              ThrottleConn1:
-                summary: Throttle conn-1 down to 50kW
+              ThrottleConn1a:
+                summary: Throttle conn-1a down to 50kW
                 value:
-                  connectorId: "conn-1"
+                  connectorId: "conn-1a"
                   requestedPowerKW: 50
                   evSoC: 0.60
       responses:
