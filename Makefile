@@ -12,8 +12,5 @@ run: build
 clean:
 	rm -rf bin/
 
-docker-up:
-	docker-compose up --build -d
-
-docker-down:
-	docker-compose down
+dev:
+	docker-compose up --build

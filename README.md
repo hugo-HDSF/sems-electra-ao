@@ -16,27 +16,22 @@ SEMS is an in-memory, deterministic simulation engine for managing EV charging s
 - Docker (optional)
 - Make (optional)
 
-### Build and Run Locally
+### Run Locally (Native)
 
 ```bash
 # Build the binary
 make build
 
-# Run the tests
-make test
-
 # Start the server (default port 8080)
 make run
-
-# Start in development mode (text logging)
-go run ./cmd/sems --dev
 ```
 
-### Docker
+### Run via Docker (Recommended)
+
+If you prefer to keep it simple and just use Docker, you can run the entire stack (with live logs attached) using:
 
 ```bash
-# Build and start via Docker Compose
-docker-compose up --build
+make dev
 ```
 
 ## API Documentation
