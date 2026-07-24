@@ -1,0 +1,8 @@
+body { background-color: #0f172a; color: #e2e8f0; }
+.card { background-color: #1e293b; border: 1px solid #334155; }
+
+/* Custom scrollbar for better look */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
