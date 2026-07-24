@@ -82,12 +82,12 @@ flowchart TD
    - **Key Components:**
      - `SiteController`: The central brain of the application. It holds the root `domain.Station` model and a `sync.RWMutex` to prevent race conditions.
      - **Mutations:** Functions like `ConnectEV()`, `DisconnectEV()`, and `Tick()`. They lock the state, apply the changes to the domain models, call the domain's reallocation algorithm to recalculate power distributions, and then fire a broadcast event.
-     - **Time Simulation:** Manages the deterministic `lastTimestamp`. When `Tick()` is called, it simulates the passage of time, fills up the EV batteries based on their allocated power, and automatically disconnects vehicles that reach 100% SoC.
+     - **Time Simulation:** Manages the deterministic `lastTimestamp` with strict monotonic enforcement (preventing "time travel" via API). When `Tick()` is called, it simulates the passage of time (capped at 10-minute intervals to protect physics calculations), fills up the EV batteries based on their allocated power, and automatically disconnects vehicles that reach 100% SoC.
 
 3. **API Layer (`internal/api`)**
    - **Responsibility:** Translating HTTP requests into Service Layer commands and formatting the output.
    - **Key Components:**
-     - `Server` & `Handlers`: Handles parsing JSON requests, returning HTTP status codes, and serving the Swagger UI and Web Dashboard.
+     - `Server` & `Handlers`: Handles parsing JSON requests, validating payload integrity (DTO validation), returning HTTP status codes, and serving the Swagger UI and Web Dashboard. The `/config` endpoint also allows for live hot-swapping of the entire station hardware without downtime.
      - **SSE Streaming**: Maintains an open connection (`http.Flusher`) to connected web clients. When the `SiteController` broadcasts a state change, the API layer immediately flushes the new JSON representation to the browser for true real-time updates.
 
 ### Deep Dive: Core Algorithms & Sequence
@@ -153,6 +153,8 @@ flowchart LR
 5. **Terminate:** The loop ends when no participant hits a limit, ensuring 100% of available power is utilized without violating hardware constraints.
 
 ## Design Constraints
-- Pure logic: no external DB or real-time `time.Now()` is used in the simulation logic.
-- 2-digit precision for SoC display formats.
-- Lock-free domain layer with concurrency handled at the orchestration (`SiteController`) layer.
+- **Pure logic**: No external DB or real-time `time.Now()` is used in the simulation logic.
+- **Strict Validation**: All API DTOs and configuration payloads are validated before reaching the Service layer to prevent panics on malformed data.
+- **Monotonic Time**: Time advancement is strictly monotonic, preventing backwards time travel via API requests.
+- **Tick Cap**: Time leaps are capped at 10 minutes max to prevent mathematical bypasses of hardware constraints (e.g., BESS operational floors).
+- **Concurrency**: Lock-free domain layer with concurrency handled at the orchestration (`SiteController`) layer.

@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-	"sems/internal/domain"
+	
+	"sems/internal/config"
 )
 
 // routes registers all API endpoints on the Server's router.
@@ -26,15 +27,23 @@ func (s *Server) routes() {
 	s.router.Handle("/", http.FileServer(http.Dir("./web")))
 }
 
-// handleConfig processes a new station configuration payload.
+// handleConfig processes a new station configuration payload and dynamically hot-swaps the station.
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
-	var station domain.Station
-	if err := json.NewDecoder(r.Body).Decode(&station); err != nil {
+	var cfg config.StationConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	s.logger.Info("received station config payload", "stationId", station.ID)
+	if err := cfg.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	station := cfg.ToDomain()
+	s.controller.Reconfigure(station)
+
+	s.logger.Info("received and applied station config payload", "stationId", station.ID)
 	json.NewEncoder(w).Encode(ConfigResponse{
 		Status:    "configured",
 		StationID: station.ID,
@@ -45,6 +54,11 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	var req ConnectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	if err := req.Validate(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -85,23 +99,19 @@ func (s *Server) handlePowerUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	
+	if err := req.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	err := s.controller.UpdatePowerRequest(req.ConnectorID, req.RequestedPowerKW, req.EVSoC, req.Timestamp)
+	session, err := s.controller.UpdatePowerRequest(req.ConnectorID, req.RequestedPowerKW, req.EVSoC, req.Timestamp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
 
-	st := s.controller.GetStatus()
-	var allocated float64
-	for _, sess := range st.Sessions {
-		if sess.ConnectorID == req.ConnectorID {
-			allocated = sess.AllocatedPowerKW
-			break
-		}
-	}
-
-	json.NewEncoder(w).Encode(PowerUpdateResponse{AllocatedPowerKW: allocated})
+	json.NewEncoder(w).Encode(PowerUpdateResponse{AllocatedPowerKW: session.AllocatedPower})
 }
 
 // handleTick advances the simulation time based on the requested duration.
@@ -109,6 +119,11 @@ func (s *Server) handleTick(w http.ResponseWriter, r *http.Request) {
 	var req TickRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.DurationMinutes <= 0 || req.DurationMinutes > 10 {
+		http.Error(w, "invalid duration: tick must be between 1 and 10 minutes", http.StatusBadRequest)
 		return
 	}
 

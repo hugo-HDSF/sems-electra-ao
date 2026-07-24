@@ -43,6 +43,21 @@ func (sc *SiteController) computeSparePower() float64 {
 	return spare
 }
 
+// Reconfigure dynamically hot-swaps the station configuration and resets the simulation time.
+// It acquires the full write lock to prevent race conditions during reallocation.
+func (sc *SiteController) Reconfigure(station *domain.Station) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
+	sc.station = station
+	sc.lastTimestamp = time.Time{} // Reset time
+	
+	sc.logger.Info("Station dynamically reconfigured", "stationId", station.ID)
+	
+	sc.reallocate()
+	sc.broadcast()
+}
+
 // demandExceedsGrid returns true if total requested power exceeds grid limit
 func (sc *SiteController) demandExceedsGrid() bool {
 	var requested float64

@@ -16,16 +16,20 @@ var (
 
 // advanceTime settles BESS energy based on the elapsed time since the last event.
 // It is called BEFORE processing any new event to ensure energy calculations are accurate.
-func (sc *SiteController) advanceTime(ts time.Time) {
+func (sc *SiteController) advanceTime(ts time.Time) error {
 	if sc.lastTimestamp.IsZero() {
 		sc.lastTimestamp = ts
-		return
+		return nil
+	}
+	if ts.Before(sc.lastTimestamp) {
+		return errors.New("timestamp cannot be earlier than the last event (time must be monotonic)")
 	}
 	dt := ts.Sub(sc.lastTimestamp)
 	if dt > 0 && sc.station.BESS != nil {
 		sc.station.BESS.ApplyEnergyDelta(dt)
 	}
 	sc.lastTimestamp = ts
+	return nil
 }
 
 // findConnector locates a connector by its ID across all EVSEs in the station.
@@ -47,7 +51,9 @@ func (sc *SiteController) ConnectEV(connectorID string, evMaxPower, evBatteryKWh
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 
-	sc.advanceTime(ts)
+	if err := sc.advanceTime(ts); err != nil {
+		return nil, err
+	}
 
 	conn, err := sc.findConnector(connectorID)
 	if err != nil {
@@ -84,7 +90,9 @@ func (sc *SiteController) DisconnectEV(connectorID string, ts time.Time) error {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 
-	sc.advanceTime(ts)
+	if err := sc.advanceTime(ts); err != nil {
+		return err
+	}
 
 	conn, err := sc.findConnector(connectorID)
 	if err != nil {
@@ -107,18 +115,20 @@ func (sc *SiteController) DisconnectEV(connectorID string, ts time.Time) error {
 
 // UpdatePowerRequest updates the requested power and current SoC for an active charging session.
 // This is typically called when the EV's charging curve demands less power as it fills up.
-func (sc *SiteController) UpdatePowerRequest(connectorID string, requestedKW, evSoC float64, ts time.Time) error {
+func (sc *SiteController) UpdatePowerRequest(connectorID string, requestedKW, evSoC float64, ts time.Time) (*domain.Session, error) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 
-	sc.advanceTime(ts)
+	if err := sc.advanceTime(ts); err != nil {
+		return nil, err
+	}
 
 	conn, err := sc.findConnector(connectorID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if conn.Status != domain.StatusOccupied || conn.Session == nil {
-		return ErrConnectorAvailable
+		return nil, ErrConnectorAvailable
 	}
 
 	conn.Session.RequestedPower = requestedKW
@@ -128,7 +138,7 @@ func (sc *SiteController) UpdatePowerRequest(connectorID string, requestedKW, ev
 	sc.broadcast()
 	
 	sc.logger.Info("Power request updated", "connectorId", connectorID, "requested", requestedKW, "allocated", conn.Session.AllocatedPower)
-	return nil
+	return conn.Session, nil
 }
 
 // TickResult represents the simulation state returned by Tick after time advancement.
@@ -146,7 +156,8 @@ func (sc *SiteController) Tick(duration time.Duration) TickResult {
 	defer sc.mu.Unlock()
 
 	ts := sc.lastTimestamp.Add(duration)
-	sc.advanceTime(ts)
+	// Tick guarantees positive duration locally, so advanceTime will not fail, but we ignore the error just in case.
+	_ = sc.advanceTime(ts)
 
 	var disconnected []string
 	for _, evse := range sc.station.EVSEs {

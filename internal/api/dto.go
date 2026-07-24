@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"time"
 
 	"sems/internal/service"
@@ -13,6 +14,20 @@ type ConnectRequest struct {
 	EVBatteryKWh float64   `json:"evBatteryKWh"`
 	EVSoC        float64   `json:"evSoC"`
 	Timestamp    time.Time `json:"timestamp"`
+}
+
+// Validate checks the structural integrity of the connect request.
+func (r *ConnectRequest) Validate() error {
+	if r.ConnectorID == "" {
+		return errors.New("connectorId is required")
+	}
+	if r.EVMaxPowerKW <= 0 {
+		return errors.New("evMaxPowerKW must be strictly positive")
+	}
+	if r.EVSoC < 0.0 || r.EVSoC > 1.0 {
+		return errors.New("evSoC must be between 0.0 and 1.0")
+	}
+	return nil
 }
 
 // ConnectResponse represents the result of a successful connection.
@@ -44,6 +59,20 @@ type PowerUpdateRequest struct {
 	RequestedPowerKW float64   `json:"requestedPowerKW"`
 	EVSoC            float64   `json:"evSoC"`
 	Timestamp        time.Time `json:"timestamp"`
+}
+
+// Validate checks the structural integrity of the power update request.
+func (r *PowerUpdateRequest) Validate() error {
+	if r.ConnectorID == "" {
+		return errors.New("connectorId is required")
+	}
+	if r.RequestedPowerKW < 0 {
+		return errors.New("requestedPowerKW cannot be negative")
+	}
+	if r.EVSoC < 0.0 || r.EVSoC > 1.0 {
+		return errors.New("evSoC must be between 0.0 and 1.0")
+	}
+	return nil
 }
 
 // PowerUpdateResponse represents the result of a power update, containing the newly allocated power.

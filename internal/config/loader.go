@@ -2,38 +2,76 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"sems/internal/domain"
 )
 
-// stationConfig represents the JSON structure for the entire station.
-type stationConfig struct {
+// StationConfig represents the JSON structure for the entire station.
+type StationConfig struct {
 	ID          string        `json:"id"`
 	GridLimitKW float64       `json:"gridLimitKW"`
-	EVSEs       []evseConfig  `json:"evses"`
-	BESS        *bessConfig   `json:"bess,omitempty"`
+	EVSEs       []EVSEConfig  `json:"evses"`
+	BESS        *BESSConfig   `json:"bess,omitempty"`
 }
 
-// evseConfig represents the JSON structure for an EVSE.
-type evseConfig struct {
+// EVSEConfig represents the JSON structure for an EVSE.
+type EVSEConfig struct {
 	ID         string            `json:"id"`
 	MaxPowerKW float64           `json:"maxPowerKW"`
-	Connectors []connectorConfig `json:"connectors"`
+	Connectors []ConnectorConfig `json:"connectors"`
 }
 
-// connectorConfig represents the JSON structure for a connector.
-type connectorConfig struct {
+// ConnectorConfig represents the JSON structure for a connector.
+type ConnectorConfig struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
 }
 
-// bessConfig represents the JSON structure for the battery storage system.
-type bessConfig struct {
+// BESSConfig represents the JSON structure for the battery storage system.
+type BESSConfig struct {
 	CapacityKWh         float64 `json:"capacityKWh"`
 	InitialSoC          float64 `json:"initialSoC"`
 	MaxChargePowerKW    float64 `json:"maxChargePowerKW"`
 	MaxDischargePowerKW float64 `json:"maxDischargePowerKW"`
+}
+
+// Validate checks the structural integrity of the station configuration.
+func (c *StationConfig) Validate() error {
+	if c.GridLimitKW < 0 {
+		return fmt.Errorf("GridLimitKW cannot be negative")
+	}
+	for _, evse := range c.EVSEs {
+		if err := evse.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.BESS != nil {
+		if err := c.BESS.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate checks the EVSE configuration.
+func (e *EVSEConfig) Validate() error {
+	if e.MaxPowerKW <= 0 {
+		return fmt.Errorf("EVSE %s max power must be greater than 0", e.ID)
+	}
+	return nil
+}
+
+// Validate checks the BESS configuration.
+func (b *BESSConfig) Validate() error {
+	if b.CapacityKWh <= 0 {
+		return fmt.Errorf("BESS capacity must be greater than 0")
+	}
+	if b.InitialSoC < 0.0 || b.InitialSoC > 1.0 {
+		return fmt.Errorf("BESS InitialSoC must be between 0.0 and 1.0")
+	}
+	return nil
 }
 
 // LoadStation loads a Station from a JSON configuration file.
@@ -44,20 +82,27 @@ func LoadStation(path string) (*domain.Station, error) {
 		return nil, err
 	}
 
-	var cfg stationConfig
+	var cfg StationConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
 
-	// Map the JSON DTOs into the strict core Domain entities
-	station := &domain.Station{
-		ID:        cfg.ID,
-		GridLimit: cfg.GridLimitKW,
-		EVSEs:     make([]*domain.EVSE, 0, len(cfg.EVSEs)),
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid station configuration: %w", err)
 	}
 
-	// Initialize the nested hardware hierarchy (EVSEs -> Connectors)
-	for _, evseCfg := range cfg.EVSEs {
+	return cfg.ToDomain(), nil
+}
+
+// ToDomain maps the JSON DTOs into the strict core Domain entities.
+func (c *StationConfig) ToDomain() *domain.Station {
+	station := &domain.Station{
+		ID:        c.ID,
+		GridLimit: c.GridLimitKW,
+		EVSEs:     make([]*domain.EVSE, 0, len(c.EVSEs)),
+	}
+
+	for _, evseCfg := range c.EVSEs {
 		evse := &domain.EVSE{
 			ID:         evseCfg.ID,
 			MaxPower:   evseCfg.MaxPowerKW,
@@ -74,15 +119,15 @@ func LoadStation(path string) (*domain.Station, error) {
 		station.EVSEs = append(station.EVSEs, evse)
 	}
 
-	if cfg.BESS != nil {
+	if c.BESS != nil {
 		station.BESS = &domain.BESS{
-			Capacity:          cfg.BESS.CapacityKWh,
-			SoC:               cfg.BESS.InitialSoC,
-			MaxChargePower:    cfg.BESS.MaxChargePowerKW,
-			MaxDischargePower: cfg.BESS.MaxDischargePowerKW,
+			Capacity:          c.BESS.CapacityKWh,
+			SoC:               c.BESS.InitialSoC,
+			MaxChargePower:    c.BESS.MaxChargePowerKW,
+			MaxDischargePower: c.BESS.MaxDischargePowerKW,
 			Status:            domain.BESSIdle,
 		}
 	}
 
-	return station, nil
+	return station
 }
