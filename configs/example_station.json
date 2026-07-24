@@ -1,0 +1,44 @@
+{
+  "id": "station-paris-01",
+  "gridLimitKW": 400,
+  "evses": [
+    {
+      "id": "evse-1",
+      "maxPowerKW": 300,
+      "connectors": [
+        { "id": "conn-1a", "type": "CCS_DC" },
+        { "id": "conn-1b", "type": "CCS_DC" }
+      ]
+    },
+    {
+      "id": "evse-2",
+      "maxPowerKW": 300,
+      "connectors": [
+        { "id": "conn-2a", "type": "CCS_DC" },
+        { "id": "conn-2b", "type": "CCS_DC" }
+      ]
+    },
+    {
+      "id": "evse-3",
+      "maxPowerKW": 300,
+      "connectors": [
+        { "id": "conn-3a", "type": "CCS_DC" },
+        { "id": "conn-3b", "type": "CCS_DC" }
+      ]
+    },
+    {
+      "id": "evse-4",
+      "maxPowerKW": 300,
+      "connectors": [
+        { "id": "conn-4a", "type": "CCS_DC" },
+        { "id": "conn-4b", "type": "CCS_DC" }
+      ]
+    }
+  ],
+  "bess": {
+    "capacityKWh": 200,
+    "initialSoC": 0.80,
+    "maxChargePowerKW": 200,
+    "maxDischargePowerKW": 200
+  }
+}
