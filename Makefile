@@ -10,7 +10,7 @@ test:
 
 # Starts the entire application stack via Docker Compose with live logs attached.
 # It uses a multi-stage Dockerfile to compile the app and run it in a tiny Alpine image.
-dev:
+build:
 	docker-compose up --build
 
 # --- Utilities ---

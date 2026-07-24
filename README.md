@@ -22,7 +22,7 @@ This approach ensures the application works identically on all computers without
 make test
 
 # Build and run the entire stack (with live logs attached)
-make dev
+make build
 ```
 
 
