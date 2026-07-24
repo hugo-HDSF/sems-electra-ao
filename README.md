@@ -25,17 +25,7 @@ make test
 make dev
 ```
 
-### Run Locally (Native)
 
-If you have Go 1.23+ installed natively on your machine:
-
-```bash
-# Build the binary
-make build
-
-# Start the server (default port 8080)
-make run
-```
 
 ## API Documentation
 

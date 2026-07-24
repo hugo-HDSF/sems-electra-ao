@@ -1,12 +1,5 @@
 .PHONY: build test run clean docker-up docker-down
 
-# --- Local Native Commands (Requires Go installed on host) ---
-
-build:
-	go build -o bin/sems ./cmd/sems
-
-run: build
-	./bin/sems --config configs/example_station.json --port 8080 --dev
 
 # --- Dockerized Commands (Recommended) ---
 
