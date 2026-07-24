@@ -18,6 +18,9 @@ func (s *Server) routes() {
 
 	// Swagger UI static
 	s.router.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./swagger"))))
+
+	// Web Dashboard static
+	s.router.Handle("/", http.FileServer(http.Dir("./web")))
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {

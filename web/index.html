@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEMS Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .card { background-color: #1e293b; border: 1px solid #334155; }
+        .bess-charging { color: #10b981; }
+        .bess-discharging { color: #ef4444; }
+        .bess-idle { color: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+    <div class="max-w-6xl mx-auto space-y-8">
+        
+        <!-- Header & Controls -->
+        <div class="flex justify-between items-center bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">
+            <div>
+                <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                    SEMS Dashboard
+                </h1>
+                <p class="text-slate-400 mt-1">Smart Energy Management System Simulator</p>
+            </div>
+            <div class="flex gap-4">
+                <button onclick="tickSimulation()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-semibold transition shadow hover:shadow-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    Tick (1 Min)
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Site Power -->
+            <div class="card rounded-xl p-6 shadow-lg">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Station Grid Limit</h3>
+                <div class="flex items-end gap-2">
+                    <span id="gridLimit" class="text-4xl font-bold text-white">---</span>
+                    <span class="text-slate-400 mb-1">kW</span>
+                </div>
+            </div>
+
+            <!-- Total Allocated -->
+            <div class="card rounded-xl p-6 shadow-lg">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Total Allocated</h3>
+                <div class="flex items-end gap-2">
+                    <span id="totalAllocated" class="text-4xl font-bold text-sky-400">---</span>
+                    <span class="text-slate-400 mb-1">kW</span>
+                </div>
+                <div class="mt-2 text-sm text-slate-400 flex justify-between">
+                    <span>Available:</span>
+                    <span id="availablePower" class="font-medium text-white">--- kW</span>
+                </div>
+            </div>
+
+            <!-- BESS State -->
+            <div class="card rounded-xl p-6 shadow-lg relative overflow-hidden">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">BESS Status</h3>
+                <div class="flex items-end gap-4 mb-2">
+                    <span id="bessSoC" class="text-4xl font-bold text-emerald-400">---</span>
+                </div>
+                <div class="text-sm font-medium px-3 py-1 rounded-full inline-block mt-1" id="bessStatusBadge">
+                    LOADING...
+                </div>
+                <div class="mt-3 text-sm text-slate-400 flex justify-between">
+                    <span>Power Flow:</span>
+                    <span id="bessPower" class="font-medium text-white">--- kW</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessions List -->
+        <div class="card rounded-xl shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Active Charging Sessions
+            </h2>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 text-sm uppercase tracking-wider">
+                            <th class="py-3 px-4 font-medium">Connector</th>
+                            <th class="py-3 px-4 font-medium">EV SoC</th>
+                            <th class="py-3 px-4 font-medium text-right">Allocated Power</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionsTableBody" class="divide-y divide-slate-700/50">
+                        <tr>
+                            <td colspan="3" class="py-8 text-center text-slate-500 italic">No active sessions</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/v1/status');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                // Update KPIs
+                document.getElementById('gridLimit').innerText = data.GridLimitKW.toFixed(0);
+                document.getElementById('totalAllocated').innerText = data.TotalAllocatedKW.toFixed(2);
+                document.getElementById('availablePower').innerText = data.AvailablePowerKW.toFixed(2) + " kW";
+                
+                if (data.BESS) {
+                    document.getElementById('bessSoC').innerText = data.BESS.SoCPercent;
+                    
+                    let flow = data.BESS.CurrentPowerKW;
+                    document.getElementById('bessPower').innerText = (flow > 0 ? "+" : "") + flow.toFixed(2) + " kW";
+                    
+                    const badge = document.getElementById('bessStatusBadge');
+                    badge.innerText = data.BESS.Status;
+                    
+                    if (data.BESS.Status === 'charging') {
+                        badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase";
+                    } else if (data.BESS.Status === 'discharging') {
+                        badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase";
+                    } else {
+                        badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/30 uppercase";
+                    }
+                }
+
+                // Update Table
+                const tbody = document.getElementById('sessionsTableBody');
+                if (!data.Sessions || data.Sessions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="py-8 text-center text-slate-500 italic">No active sessions</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.Sessions.map(sess => `
+                    <tr class="hover:bg-slate-800/50 transition-colors">
+                        <td class="py-4 px-4 font-medium text-white">${sess.ConnectorID}</td>
+                        <td class="py-4 px-4">
+                            <div class="flex items-center gap-3">
+                                <span class="w-12 font-medium">${sess.EVSoCPercent}</span>
+                                <div class="w-24 bg-slate-700 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: ${sess.EVSoC * 100}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-4 px-4 text-right font-medium text-sky-400">${sess.AllocatedPowerKW.toFixed(2)} kW</td>
+                    </tr>
+                `).join('');
+                
+            } catch (err) {
+                console.error("Failed to fetch status", err);
+            }
+        }
+
+        async function tickSimulation() {
+            try {
+                await fetch('/api/v1/simulate/tick', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ durationMinutes: 1 })
+                });
+                fetchStatus();
+            } catch (err) {
+                console.error("Failed to tick simulation", err);
+            }
+        }
+
+        // Poll every 1000ms
+        setInterval(fetchStatus, 1000);
+        fetchStatus();
+    </script>
+</body>
+</html>
