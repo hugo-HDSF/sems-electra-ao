@@ -13,34 +13,31 @@ window.onload = () => {
     });
 };
 
-async function fetchStatus() {
-    try {
-        const res = await fetch('/api/v1/status');
-        if (!res.ok) return;
-        const data = await res.json();
+function updateDashboard(data) {
+    if (!data) return;
+    
+    // Update KPIs
+    document.getElementById('gridLimit').innerText = data.GridLimitKW.toFixed(0);
+    document.getElementById('totalAllocated').innerText = data.TotalAllocatedKW.toFixed(2);
+    document.getElementById('availablePower').innerText = data.AvailablePowerKW.toFixed(2) + " kW";
+    
+    if (data.BESS) {
+        document.getElementById('bessSoC').innerText = data.BESS.SoCPercent;
         
-        // Update KPIs
-        document.getElementById('gridLimit').innerText = data.GridLimitKW.toFixed(0);
-        document.getElementById('totalAllocated').innerText = data.TotalAllocatedKW.toFixed(2);
-        document.getElementById('availablePower').innerText = data.AvailablePowerKW.toFixed(2) + " kW";
+        let flow = data.BESS.CurrentPowerKW;
+        document.getElementById('bessPower').innerText = (flow > 0 ? "+" : "") + flow.toFixed(2) + " kW";
         
-        if (data.BESS) {
-            document.getElementById('bessSoC').innerText = data.BESS.SoCPercent;
-            
-            let flow = data.BESS.CurrentPowerKW;
-            document.getElementById('bessPower').innerText = (flow > 0 ? "+" : "") + flow.toFixed(2) + " kW";
-            
-            const badge = document.getElementById('bessStatusBadge');
-            badge.innerText = data.BESS.Status;
-            
-            if (data.BESS.Status === 'charging') {
-                badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase";
-            } else if (data.BESS.Status === 'discharging') {
-                badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase";
-            } else {
-                badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/30 uppercase";
-            }
+        const badge = document.getElementById('bessStatusBadge');
+        badge.innerText = data.BESS.Status;
+        
+        if (data.BESS.Status === 'charging') {
+            badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase";
+        } else if (data.BESS.Status === 'discharging') {
+            badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase";
+        } else {
+            badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/30 uppercase";
         }
+    }
 
         // Update Table
         const tbody = document.getElementById('sessionsTableBody');
@@ -81,10 +78,6 @@ async function fetchStatus() {
             });
         });
         tbody.innerHTML = html;
-        
-    } catch (err) {
-        console.error("Failed to fetch status", err);
-    }
 }
 
 async function tickSimulation() {
@@ -94,12 +87,24 @@ async function tickSimulation() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ durationMinutes: 1 })
         });
-        fetchStatus();
+        // SSE will automatically push the new state
     } catch (err) {
         console.error("Failed to tick simulation", err);
     }
 }
 
-// Poll every 1000ms
-setInterval(fetchStatus, 1000);
-fetchStatus();
+// Subscribe to SSE stream for real-time updates
+const evtSource = new EventSource('/api/v1/status/stream');
+
+evtSource.onmessage = (event) => {
+    try {
+        const data = JSON.parse(event.data);
+        updateDashboard(data);
+    } catch (err) {
+        console.error("Failed to parse SSE data", err);
+    }
+};
+
+evtSource.onerror = (err) => {
+    console.error("SSE connection error", err);
+};

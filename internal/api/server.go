@@ -24,6 +24,8 @@ func NewServer(controller *service.SiteController, logger *slog.Logger) *Server 
 	return s
 }
 
+
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.router.ServeHTTP(w, r)

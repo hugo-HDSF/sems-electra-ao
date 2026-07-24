@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 	"sems/internal/domain"
@@ -14,6 +15,7 @@ func (s *Server) routes() {
 	s.router.HandleFunc("POST /api/v1/events/power-update", s.handlePowerUpdate)
 	s.router.HandleFunc("POST /api/v1/simulate/tick", s.handleTick)
 	s.router.HandleFunc("GET /api/v1/status", s.handleStatus)
+	s.router.HandleFunc("GET /api/v1/status/stream", s.handleStatusStream)
 	s.router.HandleFunc("GET /api/v1/health", s.handleHealth)
 
 	// Swagger UI static
@@ -122,6 +124,50 @@ func (s *Server) handleTick(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.controller.GetStatus())
+}
+
+// handleStatusStream maintains a persistent Server-Sent Events (SSE) connection
+// and pushes real-time station updates to the client whenever the state changes.
+func (s *Server) handleStatusStream(w http.ResponseWriter, r *http.Request) {
+	// 1. Set required headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	// Optional: CORS headers if needed for other frontends
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// 2. Ensure the response writer supports flushing
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Register with the orchestrator to receive updates
+	ch := s.controller.Subscribe()
+	defer s.controller.Unsubscribe(ch)
+
+	// 4. Listen for updates or client disconnection
+	for {
+		select {
+		case status := <-ch:
+			// Encode the status object to JSON
+			jsonBytes, err := json.Marshal(status)
+			if err != nil {
+				s.logger.Error("Failed to marshal SSE status", "error", err)
+				continue
+			}
+			
+			// Write the standard SSE payload format: "data: {json}\n\n"
+			fmt.Fprintf(w, "data: %s\n\n", jsonBytes)
+			flusher.Flush()
+
+		case <-r.Context().Done():
+			// The client closed the connection (e.g. closed the browser tab)
+			s.logger.Info("SSE client disconnected")
+			return
+		}
+	}
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

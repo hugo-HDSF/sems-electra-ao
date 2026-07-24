@@ -13,6 +13,9 @@ type SiteController struct {
 	lastTimestamp time.Time
 	mu            sync.RWMutex
 	logger        *slog.Logger
+
+	subscribers map[chan StationStatus]struct{}
+	subMu       sync.Mutex
 }
 
 func NewSiteController(station *domain.Station, logger *slog.Logger) *SiteController {

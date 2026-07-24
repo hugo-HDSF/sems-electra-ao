@@ -162,6 +162,8 @@ func (sc *SiteController) Tick(duration time.Duration) TickResult {
 	sc.reallocate()
 
 	sc.logger.Info("Simulation ticked", "duration", duration.String(), "newTimestamp", ts.Format(time.RFC3339))
+	
+	sc.broadcast()
 
 	return TickResult{
 		AdvancedBy:   duration,
@@ -244,6 +246,7 @@ func (sc *SiteController) getStatusLocked() StationStatus {
 	}
 }
 
+
 type StationStatus struct {
 	StationID          string
 	GridLimitKW        float64
@@ -253,6 +256,53 @@ type StationStatus struct {
 	BESS               *BESSStatus
 	Sessions           []SessionStatus
 	EVSEs              []EVSEStatus
+}
+
+// Subscribe registers a new client for Server-Sent Events (SSE) updates.
+// It returns a channel that will receive StationStatus updates.
+func (sc *SiteController) Subscribe() chan StationStatus {
+	sc.subMu.Lock()
+	defer sc.subMu.Unlock()
+	
+	ch := make(chan StationStatus, 1)
+	if sc.subscribers == nil {
+		sc.subscribers = make(map[chan StationStatus]struct{})
+	}
+	sc.subscribers[ch] = struct{}{}
+	
+	// Instantly push the current state so the UI renders immediately
+	ch <- sc.GetStatus()
+	
+	return ch
+}
+
+// Unsubscribe removes a client channel to prevent memory leaks when a client disconnects.
+func (sc *SiteController) Unsubscribe(ch chan StationStatus) {
+	sc.subMu.Lock()
+	defer sc.subMu.Unlock()
+	
+	if _, ok := sc.subscribers[ch]; ok {
+		delete(sc.subscribers, ch)
+		close(ch)
+	}
+}
+
+// broadcast sends the latest StationStatus to all connected SSE clients.
+// It is called automatically after any state mutation (Tick, Connect, Disconnect).
+func (sc *SiteController) broadcast() {
+	status := sc.GetStatus()
+	
+	sc.subMu.Lock()
+	defer sc.subMu.Unlock()
+	
+	for ch := range sc.subscribers {
+		select {
+		case ch <- status:
+			// Successfully sent
+		default:
+			// If the channel is full, drop the update to prevent blocking the orchestrator
+		}
+	}
 }
 
 type EVSEStatus struct {
