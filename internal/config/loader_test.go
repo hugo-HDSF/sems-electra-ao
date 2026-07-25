@@ -13,7 +13,7 @@ func TestLoadStation(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "station.json")
 	
 	configData := []byte(`{
-	  "id": "station-paris-01",
+	  "id": "station-01",
 	  "gridLimitKW": 400,
 	  "evses": [
 		{
@@ -42,8 +42,8 @@ func TestLoadStation(t *testing.T) {
 		t.Fatalf("LoadStation failed: %v", err)
 	}
 
-	if station.ID != "station-paris-01" {
-		t.Errorf("expected station ID 'station-paris-01', got %s", station.ID)
+	if station.ID != "station-01" {
+		t.Errorf("expected station ID 'station-01', got %s", station.ID)
 	}
 	if station.GridLimit != 400 {
 		t.Errorf("expected grid limit 400, got %f", station.GridLimit)

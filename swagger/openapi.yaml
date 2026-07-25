@@ -146,9 +146,9 @@ paths:
               type: object
             examples:
               DefaultConfig:
-                summary: Paris-01 Station (400kW Grid, 4x300kW Chargers, 200kWh BESS)
+                summary: Paris-01 Station (400kW Grid, 4x300kW EVSEs, 200kWh BESS)
                 value:
-                  id: "station-paris-01"
+                  id: "station-01"
                   gridLimitKW: 400
                   evses:
                     - id: "evse-1"

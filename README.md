@@ -35,7 +35,20 @@ make build-d
 Swagger UI is available at `http://localhost:8080/swagger/`.
 The raw OpenAPI 3.0 specification can be found in `swagger/openapi.yaml`.
 
-### Domain Logic & Architecture Schema
+### API Reference Table
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| **POST** | `/api/v1/station/config` | Load or hot-swap the physical station topology (Grid limit, EVSEs, BESS). |
+| **POST** | `/api/v1/events/connect` | Connect a new EV to a specific connector and request power. |
+| **POST** | `/api/v1/events/disconnect` | Unplug and disconnect an EV from a connector. |
+| **POST** | `/api/v1/events/power-update` | Update a connected EV's State of Charge (SoC) and requested power. |
+| **POST** | `/api/v1/simulate/tick` | Advance the simulation time deterministically (up to 10 minutes). |
+| **GET** | `/api/v1/status` | Retrieve the current snapshot of the station's state. |
+| **GET** | `/api/v1/status/stream` | Subscribe to a Server-Sent Events (SSE) stream for real-time push updates. |
+| **GET** | `/api/v1/health` | Simple health check endpoint. |
+
+## Domain Logic & Architecture Schema
 
 The codebase is strictly separated into three layers. This architecture deliberately isolates the concurrent API threads and mutex locking (Service Layer) entirely away from the pure, deterministic mathematical models (Domain Layer).
 
@@ -72,7 +85,7 @@ flowchart TD
     SSE -->|Real-time UI Updates| Client
 ```
 
-#### Layer Breakdown:
+### Layer Breakdown:
 
 1. **Domain Layer (`internal/domain`)**
    - **Responsibility:** Pure business logic. Completely unaware of concurrency (no mutexes), HTTP requests, or external databases.
@@ -93,11 +106,11 @@ flowchart TD
      - `Server` & `Handlers`: Handles parsing JSON requests, validating payload integrity (DTO validation), returning HTTP status codes, and serving the Swagger UI and Web Dashboard. The `/config` endpoint also allows for live hot-swapping of the entire station hardware without downtime.
      - **SSE Streaming**: Maintains an open connection (`http.Flusher`) to connected web clients. When the `SiteController` broadcasts a state change, the API layer immediately flushes the new JSON representation to the browser for true real-time updates.
 
-### Deep Dive: Core Algorithms & Sequence
+## Deep Dive: Core Algorithms & Sequence
 
 To understand the core logic of the simulation, we must look at how time and power are processed. The system relies on two main "hard functions": `Tick()` (the time engine) and `Allocate()` (the power distributor).
 
-#### 1. The Time Engine: `SiteController.Tick(duration)`
+### 1. The Time Engine: `SiteController.Tick(duration)`
 Because the simulation does not use real-time `time.Now()`, the station's state only advances when `Tick()` is called. This is the heartbeat of the system.
 
 ```mermaid
@@ -122,7 +135,7 @@ flowchart LR
 5. **Reallocate Power:** Because cars might have left, or their charging curves changed, we run the Allocation algorithm to perfectly balance the power again.
 6. **Broadcast:** Send the brand new state instantly to the web dashboard so users see the update in real-time.
 
-#### 2. The Power Distributor: `domain.Allocate(station)`
+### 2. The Power Distributor: `domain.Allocate(station)`
 The hardest algorithmic challenge is distributing a limited power budget fairly when hardware constraints (like a 300kW cable limit) cap what an individual vehicle can receive. 
 
 Instead of a simple division (which wastes power when a vehicle hits its cap), the system uses an **Iterative Proportional Split with Limits** (`iterativeProportionalSplitWithLimits`).
