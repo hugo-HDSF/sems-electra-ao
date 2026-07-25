@@ -51,7 +51,7 @@ func computeSiteShares(station *Station, demands map[string]float64, available f
 		}
 	}
 
-	return iterativeProportionalSplit(evseDemands, evseLimits, available)
+	return iterativeProportionalSplitWithLimits(evseDemands, evseLimits, available)
 }
 
 // computeConnectorAllocations distributes the EVSE-level power allocation
@@ -82,7 +82,7 @@ func computeConnectorAllocations(station *Station, evseShares map[string]float64
 			continue
 		}
 
-		connShares := iterativeProportionalSplit(connDemands, connLimits, share)
+		connShares := iterativeProportionalSplitWithLimits(connDemands, connLimits, share)
 
 		for _, conn := range evse.Connectors {
 			if connShare, ok := connShares[conn.ID]; ok {
@@ -94,9 +94,9 @@ func computeConnectorAllocations(station *Station, evseShares map[string]float64
 	return allocations
 }
 
-// iterativeProportionalSplit splits a budget among participants based on their requests,
+// iterativeProportionalSplitWithLimits splits a budget among participants based on their requests,
 // capping each participant at their respective limit, and redistributing any excess budget.
-func iterativeProportionalSplit(requests map[string]float64, limits map[string]float64, budget float64) map[string]float64 {
+func iterativeProportionalSplitWithLimits(requests map[string]float64, limits map[string]float64, budget float64) map[string]float64 {
 	shares := make(map[string]float64)
 	
 	// Create the initial pool of active participants that still need power

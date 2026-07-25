@@ -78,7 +78,7 @@ flowchart TD
    - **Responsibility:** Pure business logic. Completely unaware of concurrency (no mutexes), HTTP requests, or external databases.
    - **Key Components:**
      - `Station`, `EVSE`, `Connector`, `BESS`, `Session`: The core data models representing the physical hardware and active charging sessions.
-     - `allocation.go`: Contains the `Allocate()` function and the `iterativeProportionalSplit` algorithm. It gathers the active power demands from all connected EVs, factors in the `GridLimit` and BESS capabilities, and computes exactly how much power each `Connector` receives. It ensures no EVSE or vehicle exceeds its physical constraints and redistributes excess power intelligently.
+     - `allocation.go`: Contains the `Allocate()` function and the `iterativeProportionalSplitWithLimits` algorithm. It gathers the active power demands from all connected EVs, factors in the `GridLimit` and BESS capabilities, and computes exactly how much power each `Connector` receives. It ensures no EVSE or vehicle exceeds its physical constraints and redistributes excess power intelligently.
 
 2. **Service Layer (`internal/service`)**
    - **Responsibility:** Thread-safe orchestration and state management.
@@ -125,7 +125,7 @@ flowchart LR
 #### 2. The Power Distributor: `domain.Allocate(station)`
 The hardest algorithmic challenge is distributing a limited power budget fairly when hardware constraints (like a 300kW cable limit) cap what an individual vehicle can receive. 
 
-Instead of a simple division (which wastes power when a vehicle hits its cap), the system uses an **Iterative Proportional Split with Limits** (`iterativeProportionalSplit`).
+Instead of a simple division (which wastes power when a vehicle hits its cap), the system uses an **Iterative Proportional Split with Limits** (`iterativeProportionalSplitWithLimits`).
 
 ```mermaid
 flowchart LR
@@ -148,7 +148,7 @@ flowchart LR
     Iter2 -- No --> Done[5. Return Final Allocations]
 ```
 
-**How `iterativeProportionalSplit` Works (The Loop):**
+**How `iterativeProportionalSplitWithLimits` Works (The Loop):**
 1. **Calculate Fair Share:** Divide the remaining budget proportionally based on each participant's requested demand.
 2. **Apply Constraints:** Check if any participant's fair share exceeds their physical limit.
 3. **Cap & Harvest:** If they exceed the limit, lock them at their maximum limit, subtract that from the budget, and remove them from the active pool.
