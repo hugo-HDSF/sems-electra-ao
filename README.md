@@ -114,7 +114,7 @@ flowchart LR
     Reallocate --> SSE[6. Broadcast New State via SSE]
 ```
 
-**Step-by-step breakdown (Easy to explain):**
+**Step-by-step breakdown:**
 1. **Lock State:** Pause any other incoming requests to prevent data conflicts.
 2. **Advance Time:** Move the simulation clock forward (e.g., +1 minute).
 3. **Fill Batteries:** Add energy (kWh) to every connected car based on how much power they were allocated in the previous minute.
