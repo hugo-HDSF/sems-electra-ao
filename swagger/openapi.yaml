@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: Smart Energy Management System Simulation API
 servers:
-  - url: http://localhost:8080
+  - url: /
 paths:
   /api/v1/health:
     get:
