@@ -24,6 +24,9 @@ func (r *ConnectRequest) Validate() error {
 	if r.EVMaxPowerKW <= 0 {
 		return errors.New("evMaxPowerKW must be strictly positive")
 	}
+	if r.EVBatteryKWh <= 0 {
+		return errors.New("evBatteryKWh must be strictly positive")
+	}
 	if r.EVSoC < 0.0 || r.EVSoC > 1.0 {
 		return errors.New("evSoC must be between 0.0 and 1.0")
 	}

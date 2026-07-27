@@ -63,6 +63,13 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Timestamp.IsZero() {
+		req.Timestamp = s.controller.GetStatus().LastEventTimestamp
+		if req.Timestamp.IsZero() {
+			req.Timestamp = time.Now()
+		}
+	}
+
 	session, err := s.controller.ConnectEV(req.ConnectorID, req.EVMaxPowerKW, req.EVBatteryKWh, req.EVSoC, req.Timestamp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
@@ -81,6 +88,13 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if req.Timestamp.IsZero() {
+		req.Timestamp = s.controller.GetStatus().LastEventTimestamp
+		if req.Timestamp.IsZero() {
+			req.Timestamp = time.Now()
+		}
 	}
 
 	err := s.controller.DisconnectEV(req.ConnectorID, req.Timestamp)
@@ -103,6 +117,13 @@ func (s *Server) handlePowerUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := req.Validate(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if req.Timestamp.IsZero() {
+		req.Timestamp = s.controller.GetStatus().LastEventTimestamp
+		if req.Timestamp.IsZero() {
+			req.Timestamp = time.Now()
+		}
 	}
 
 	session, err := s.controller.UpdatePowerRequest(req.ConnectorID, req.RequestedPowerKW, req.EVSoC, req.Timestamp)
